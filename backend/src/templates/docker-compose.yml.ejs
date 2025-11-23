@@ -1,0 +1,47 @@
+git add backend/src/server.jsversion: '<%= version %>'
+
+services:
+<% services.forEach(service => { %>
+  <%= service.sanitizedName %>:
+    build:
+      context: ./<%= service.sanitizedName %>
+      dockerfile: Dockerfile
+    container_name: <%= projectName %>-<%= service.sanitizedName %>
+    <% if (service.config && service.config.port) { %>
+    ports:
+      - "<%= service.config.port %>:<%= service.config.port %>"
+    <% } %>
+    <% if (service.config && service.config.environment) { %>
+    environment:
+      <% for (const [key, value] of Object.entries(service.config.environment)) { %>
+      <%= key %>: <%= value %>
+      <% } %>
+    <% } %>
+    <% if (service.config && service.config.volumes && service.config.volumes.length > 0) { %>
+    volumes:
+      <% service.config.volumes.forEach(volume => { %>
+      - <%= volume %>
+      <% }) %>
+    <% } %>
+    <% if (service.dependsOn && service.dependsOn.length > 0) { %>
+    depends_on:
+      <% service.dependsOn.forEach(dep => { %>
+      - <%= dep.sanitizedName || dep.label.toLowerCase().replace(/[^a-z0-9-]/g, '-') %>
+      <% }) %>
+    <% } %>
+    networks:
+      - <%= networkName %>
+    restart: unless-stopped
+
+<% }) %>
+
+networks:
+  <%= networkName %>:
+    driver: bridge
+
+volumes:
+<% services.forEach(service => { %>
+  <% if (['mongodb', 'postgresql', 'mysql'].includes(service.type)) { %>
+  <%= service.sanitizedName %>-data:
+  <% } %>
+<% }) %>
