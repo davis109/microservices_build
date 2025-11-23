@@ -1,0 +1,114 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || <%= service.config?.port || 5000 %>;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+<% const dbService = dependencies.find(d => ['mongodb', 'postgresql', 'mysql'].includes(d.type)); %>
+<% if (dbService) { %>
+<% if (dbService.type === 'mongodb') { %>
+// MongoDB Connection
+const mongoose = require('mongoose');
+const mongoUri = process.env.MONGODB_URI || 'mongodb://<%= dbService.label.toLowerCase().replace(/[^a-z0-9-]/g, '-') %>:27017/mydb';
+
+mongoose.connect(mongoUri)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+<% } %>
+
+<% if (dbService.type === 'postgresql') { %>
+// PostgreSQL Connection
+const { Pool } = require('pg');
+const pool = new Pool({
+  host: process.env.POSTGRES_HOST || '<%= dbService.label.toLowerCase().replace(/[^a-z0-9-]/g, '-') %>',
+  port: process.env.POSTGRES_PORT || 5432,
+  database: process.env.POSTGRES_DB || 'mydb',
+  user: process.env.POSTGRES_USER || 'postgres',
+  password: process.env.POSTGRES_PASSWORD || 'password'
+});
+
+pool.connect()
+  .then(() => console.log('✅ Connected to PostgreSQL'))
+  .catch(err => console.error('❌ PostgreSQL connection error:', err));
+<% } %>
+
+<% if (dbService.type === 'mysql') { %>
+// MySQL Connection
+const mysql = require('mysql2/promise');
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST || '<%= dbService.label.toLowerCase().replace(/[^a-z0-9-]/g, '-') %>',
+  port: process.env.MYSQL_PORT || 3306,
+  database: process.env.MYSQL_DATABASE || 'mydb',
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || 'password'
+});
+
+pool.getConnection()
+  .then(() => console.log('✅ Connected to MySQL'))
+  .catch(err => console.error('❌ MySQL connection error:', err));
+<% } %>
+<% } %>
+
+<% const redisService = dependencies.find(d => d.type === 'redis'); %>
+<% if (redisService) { %>
+// Redis Connection
+const redis = require('redis');
+const redisClient = redis.createClient({
+  url: process.env.REDIS_URL || 'redis://<%= redisService.label.toLowerCase().replace(/[^a-z0-9-]/g, '-') %>:6379'
+});
+
+redisClient.connect()
+  .then(() => console.log('✅ Connected to Redis'))
+  .catch(err => console.error('❌ Redis connection error:', err));
+<% } %>
+
+// Routes
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to <%= service.label %> API',
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok',
+    service: '<%= service.label %>',
+    connections: {
+      <% if (dbService) { %>database: '<%= dbService.type %>'<% if (redisService) { %>,<% } %><% } %>
+      <% if (redisService) { %>cache: 'redis'<% } %>
+    }
+  });
+});
+
+// Example API endpoint
+app.get('/api/data', async (req, res) => {
+  try {
+    // Add your business logic here
+    res.json({
+      data: 'Sample data from <%= service.label %>',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Error handling
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Start server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 <%= service.label %> running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
