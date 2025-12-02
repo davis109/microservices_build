@@ -4,7 +4,7 @@ const { body, validationResult } = require('express-validator');
 const Project = require('../models/Project');
 const auth = require('../middleware/auth');
 
-// Validation middleware
+
 const validateProject = [
   body('name').trim().notEmpty().withMessage('Project name is required'),
   body('services').isArray().withMessage('Services must be an array'),
