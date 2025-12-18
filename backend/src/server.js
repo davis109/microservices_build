@@ -9,6 +9,7 @@ const morgan = require('morgan');
 const authRoutes = require('./routes/auth');
 const projectRoutes = require('./routes/projects');
 const generateRoutes = require('./routes/generate');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -23,12 +24,33 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: '🚀 Kontrol Backend API',
+    version: '1.0.0',
+    aiProvider: 'Google Gemini',
+    model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      auth: '/api/auth',
+      projects: '/api/projects',
+      generate: '/api/generate',
+      ai: '/api/ai'
+    },
+    documentation: 'See README.md for API documentation'
+  });
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    service: 'Kontrol Backend API'
+    service: 'Kontrol Backend API',
+    aiProvider: 'Google Gemini',
+    model: process.env.GEMINI_MODEL
   });
 });
 
@@ -36,6 +58,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/generate', generateRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -52,22 +75,20 @@ app.use((err, req, res, next) => {
 });
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+mongoose.connect(process.env.MONGODB_URI)
 .then(() => {
   console.log('✅ Connected to MongoDB');
-  
-  // Start server
-  app.listen(PORT, () => {
-    console.log(`🚀 Kontrol Backend API running on port ${PORT}`);
-    console.log(`📍 Environment: ${process.env.NODE_ENV}`);
-  });
 })
 .catch((err) => {
-  console.error('❌ MongoDB connection error:', err);
-  process.exit(1);
+  console.warn('⚠️  MongoDB connection error:', err.message);
+  console.warn('⚠️  Running without database. Some features may not work.');
+});
+
+// Start server regardless of MongoDB connection
+app.listen(PORT, () => {
+  console.log(`🚀 Kontrol Backend API running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🤖 AI Provider: Google Gemini (${process.env.GEMINI_MODEL})`);
 });
 
 module.exports = app;
